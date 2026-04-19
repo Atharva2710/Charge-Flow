@@ -2,17 +2,51 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getAllBookings, cancelBooking, isBookingActive } from '../hooks/useBooking'
+import { fetchUserBookings } from '../services/bookingService'
+import { useAuth } from '../context/AuthContext'
 
 export default function BookingsPage() {
   const navigate = useNavigate()
   const [bookings, setBookings] = useState([])
   const [activeTab, setActiveTab] = useState('active') // 'active' | 'history'
   const [cancellingId, setCancellingId] = useState(null)
+  const { user } = useAuth()
 
-  // Load bookings from localStorage
+  // Load bookings (hybrid approach: Local instantly -> DB optionally)
   useEffect(() => {
+    // 1. Instant load from local
     setBookings(getAllBookings())
-  }, [])
+
+    // 2. Background sync from Supabase
+    async function syncDb() {
+      if (!user?.id) return
+      const dbBookings = await fetchUserBookings(user.id)
+      
+      if (dbBookings && dbBookings.length > 0) {
+        // Map DB snake_case columns back to our React camelCase state
+        const mapped = dbBookings.map(db => ({
+          id: db.id,
+          stationId: db.station_id,
+          stationName: db.station_name,
+          stationAddress: 'Location hidden', // Not stored in our simple DB schema
+          charger: { connector_type: db.charger_type, max_kw: '?' },
+          duration: db.duration_minutes,
+          vehicleName: db.vehicle_name,
+          estimatedCost: db.estimated_cost,
+          estimatedKwh: db.estimated_kwh,
+          status: db.status,
+          bookedAt: db.created_at,
+          expiresAt: db.end_time
+        }))
+
+        // Optional: Replace local state if DB is successful
+        // Note: For this demo, we merge or let DB override if it has data
+        setBookings(mapped)
+      }
+    }
+    
+    syncDb()
+  }, [user])
 
   const activeBookings = bookings.filter(b => isBookingActive(b))
   const historyBookings = bookings.filter(b => !isBookingActive(b))
