@@ -1,8 +1,9 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { getAllBookings } from '../hooks/useBooking'
+import { fetchUserBookings } from '../services/bookingService'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -16,8 +17,32 @@ export default function ProfilePage() {
     ? new Date(user.created_at).toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
     : 'Recently'
 
+  const [bookings, setBookings] = useState([])
+
+  useEffect(() => {
+    // Local fallback
+    setBookings(getAllBookings())
+
+    // Supabase sync
+    async function syncDb() {
+      if (!user?.id) return
+      const dbBookings = await fetchUserBookings(user.id)
+      if (dbBookings && dbBookings.length > 0) {
+        setBookings(dbBookings.map(db => ({
+          id: db.id,
+          stationId: db.station_id,
+          stationName: db.station_name,
+          duration: db.duration_minutes,
+          vehicleName: db.vehicle_name,
+          estimatedCost: db.estimated_cost,
+          estimatedKwh: db.estimated_kwh,
+        })))
+      }
+    }
+    syncDb()
+  }, [user])
+
   // Stats from booking history
-  const bookings = getAllBookings()
   const profileStats = useMemo(() => ({
     total: bookings.length,
     totalKwh: bookings.reduce((s, b) => s + (b.estimatedKwh || 0), 0).toFixed(1),
