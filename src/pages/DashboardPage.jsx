@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { getAllBookings, isBookingActive } from '../hooks/useBooking'
+import { fetchUserBookings } from '../services/bookingService'
 
 export default function DashboardPage() {
   const navigate = useNavigate()
@@ -11,7 +12,29 @@ export default function DashboardPage() {
 
   useEffect(() => {
     setBookings(getAllBookings())
-  }, [])
+
+    async function syncDb() {
+      if (!user?.id) return
+      const dbBookings = await fetchUserBookings(user.id)
+      
+      if (dbBookings && dbBookings.length > 0) {
+        setBookings(dbBookings.map(db => ({
+          id: db.id,
+          stationId: db.station_id,
+          stationName: db.station_name,
+          charger: { connector_type: db.charger_type },
+          duration: db.duration_minutes,
+          vehicleName: db.vehicle_name,
+          estimatedCost: db.estimated_cost,
+          estimatedKwh: db.estimated_kwh,
+          status: db.status,
+          bookedAt: db.created_at,
+          expiresAt: db.end_time
+        })))
+      }
+    }
+    syncDb()
+  }, [user])
 
   // useMemo — derive stats from bookings without recalculating every render
   const stats = useMemo(() => {
