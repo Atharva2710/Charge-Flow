@@ -38,6 +38,12 @@ export default function MapPage() {
     maxDistance: 0,
   })
 
+  // Trip Planner State
+  const [tripPlannerOpen, setTripPlannerOpen] = useState(false)
+  const [tripOrigin, setTripOrigin] = useState('')
+  const [tripDestination, setTripDestination] = useState('')
+  const [isPlanningTrip, setIsPlanningTrip] = useState(false)
+
   // ── Custom hooks
   const { coords: userCoords, loading: locationLoading, refresh: refreshLocation } = useGeolocation()
   const { stations, loading: stationsLoading } = useChargers(userCoords, {
@@ -129,6 +135,91 @@ export default function MapPage() {
     } finally {
       setIsNavigating(false)
     }
+  }
+
+  // ── Trip Planner Logic ──
+  const handlePlanTrip = async (e) => {
+    e.preventDefault()
+    if (!tripOrigin || !tripDestination) return
+    setIsPlanningTrip(true)
+
+    try {
+      // 1. Geocode Origin
+      const oRes = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(tripOrigin)}.json?access_token=${mapboxgl.accessToken}&country=IN`)
+      const oData = await oRes.json()
+      const oCoords = oData.features[0]?.geometry?.coordinates
+
+      // 2. Geocode Destination
+      const dRes = await fetch(`https://api.mapbox.com/geocoding/v5/mapbox.places/${encodeURIComponent(tripDestination)}.json?access_token=${mapboxgl.accessToken}&country=IN`)
+      const dData = await dRes.json()
+      const dCoords = dData.features[0]?.geometry?.coordinates
+
+      if (!oCoords || !dCoords) {
+        alert("Couldn't find one of the locations. Please be more specific.")
+        setIsPlanningTrip(false)
+        return
+      }
+
+      // 3. Directions API (Origin to Destination)
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${oCoords[0]},${oCoords[1]};${dCoords[0]},${dCoords[1]}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+      )
+      const data = await query.json()
+      const route = data.routes[0]?.geometry
+
+      if (!route) {
+        setIsPlanningTrip(false)
+        return
+      }
+
+      // 4. Draw Route
+      if (map.current.getSource('route')) {
+        map.current.getSource('route').setData(route)
+        map.current.setPaintProperty('route', 'line-color', '#A855F7') // Purple for trip
+      } else {
+        map.current.addLayer({
+          id: 'route',
+          type: 'line',
+          source: {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: route
+            }
+          },
+          layout: { 'line-join': 'round', 'line-cap': 'round' },
+          paint: {
+            'line-color': '#A855F7',
+            'line-width': 6,
+            'line-opacity': 0.8
+          }
+        })
+      }
+
+      // Fit map to route bounds
+      const bounds = new mapboxgl.LngLatBounds()
+      route.coordinates.forEach(coord => bounds.extend(coord))
+      map.current.fitBounds(bounds, { padding: 80, duration: 2000 })
+      
+      // Close planner on success
+      setTripPlannerOpen(false)
+
+    } catch (err) {
+      console.error(err)
+      alert("Failed to plan trip. Check your connection.")
+    } finally {
+      setIsPlanningTrip(false)
+    }
+  }
+
+  const clearTrip = () => {
+    setTripOrigin('')
+    setTripDestination('')
+    if (map.current?.getSource('route')) {
+      map.current.getSource('route').setData({ type: 'FeatureCollection', features: [] })
+    }
+    setTripPlannerOpen(false)
   }
 
   // ── useCallback — stable reference for marker click handler (won't re-create on every render)
@@ -246,6 +337,20 @@ export default function MapPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* Trip Planner Toggle */}
+          <button
+            onClick={() => {
+              setTripPlannerOpen(v => !v)
+              setSidebarOpen(false)
+            }}
+            className={`px-3 py-1.5 rounded-lg border text-xs font-medium transition ${
+              tripPlannerOpen 
+                ? 'bg-[#A855F7]/20 border-[#A855F7] text-white' 
+                : 'bg-[#1E293B] border-[#334155] text-[#94A3B8] hover:text-white hover:border-[#A855F7]'
+            }`}
+          >
+            🗺️ Trip Planner
+          </button>
           {/* My Bookings link */}
           <button
             onClick={() => navigate('/bookings')}
@@ -392,7 +497,7 @@ export default function MapPage() {
           )}
 
           {/* Legend */}
-          <div className="absolute bottom-6 left-4 glass rounded-xl px-3 py-2 flex gap-4">
+          <div className="absolute bottom-6 left-4 glass rounded-xl px-3 py-2 flex gap-4 z-10">
             {[
               { color: '#10B981', label: 'Available' },
               { color: '#F59E0B', label: '1 left' },
@@ -405,6 +510,64 @@ export default function MapPage() {
               </div>
             ))}
           </div>
+          
+          {/* ── Trip Planner Floating Panel ── */}
+          <AnimatePresence>
+            {tripPlannerOpen && (
+              <motion.div
+                initial={{ opacity: 0, y: -20, scale: 0.95 }}
+                animate={{ opacity: 1, y: 0, scale: 1 }}
+                exit={{ opacity: 0, y: -20, scale: 0.95 }}
+                className="absolute top-4 left-1/2 -translate-x-1/2 w-full max-w-sm z-20"
+              >
+                <div className="glass shadow-2xl rounded-2xl p-5 border border-[#1E293B]">
+                  <div className="flex justify-between items-center mb-4">
+                    <h3 className="font-bold text-white text-sm">Plan High-Speed Trip</h3>
+                    <button onClick={clearTrip} className="text-[#94A3B8] hover:text-white text-xs">
+                      Clear
+                    </button>
+                  </div>
+                  
+                  <form onSubmit={handlePlanTrip} className="flex flex-col gap-3">
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-[10px]">🟢</div>
+                      <input
+                        type="text"
+                        placeholder="Start Location (e.g. Mumbai)"
+                        required
+                        value={tripOrigin}
+                        onChange={e => setTripOrigin(e.target.value)}
+                        className="w-full bg-[#0F172A] border border-[#334155] rounded-xl pl-8 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#A855F7] transition"
+                      />
+                    </div>
+                    
+                    <div className="relative">
+                      <div className="absolute left-3 top-3 text-[10px]">📍</div>
+                      <input
+                        type="text"
+                        placeholder="Destination (e.g. Pune)"
+                        required
+                        value={tripDestination}
+                        onChange={e => setTripDestination(e.target.value)}
+                        className="w-full bg-[#0F172A] border border-[#334155] rounded-xl pl-8 pr-4 py-2.5 text-white text-sm focus:outline-none focus:border-[#A855F7] transition"
+                      />
+                    </div>
+                    
+                    <button
+                      type="submit"
+                      disabled={isPlanningTrip}
+                      className="w-full mt-2 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-[#A855F7] to-[#8B5CF6] text-white hover:opacity-90 transition disabled:opacity-50 flex items-center justify-center gap-2 shadow-lg shadow-purple-500/20"
+                    >
+                      {isPlanningTrip && (
+                        <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                      )}
+                      {isPlanningTrip ? 'Routing...' : 'Draw Highway Route'}
+                    </button>
+                  </form>
+                </div>
+              </motion.div>
+            )}
+          </AnimatePresence>
         </div>
 
         {/* ── Station Detail Panel (slides up from bottom on mobile / right on desktop) ── */}
