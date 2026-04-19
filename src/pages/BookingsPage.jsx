@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getAllBookings, cancelBooking, isBookingActive } from '../hooks/useBooking'
-import { fetchUserBookings } from '../services/bookingService'
+import { fetchUserBookings, cancelUserBookingInDB } from '../services/bookingService'
 import { useAuth } from '../context/AuthContext'
 
 export default function BookingsPage() {
@@ -62,12 +62,24 @@ export default function BookingsPage() {
 
   const handleCancel = useCallback((bookingId) => {
     setCancellingId(bookingId)
-    setTimeout(() => {
-      const updated = cancelBooking(bookingId)
-      setBookings(updated)
+
+    setTimeout(async () => {
+      // 1. Cancel in local storage (fallback)
+      cancelBooking(bookingId)
+
+      // 2. Cancel in Supabase Cloud DB
+      if (user?.id && !bookingId.toString().startsWith('BK-')) {
+        await cancelUserBookingInDB(bookingId)
+      }
+
+      // 3. Update local React state instantly to reflect UI change
+      setBookings(prev => prev.map(b => 
+        b.id === bookingId ? { ...b, status: 'cancelled' } : b
+      ))
+      
       setCancellingId(null)
     }, 800)
-  }, [])
+  }, [user])
 
   function timeRemaining(expiresAt) {
     const diff = new Date(expiresAt) - new Date()

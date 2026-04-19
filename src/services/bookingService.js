@@ -40,3 +40,17 @@ export async function fetchUserBookings(userId) {
   }
   return data
 }
+
+export async function cancelUserBookingInDB(bookingId) {
+  if (!bookingId) return { error: 'No booking ID provided' }
+
+  // Supabase takes UUIDs, while local storage used 'BK-...'. 
+  // We only send to DB if it's a valid Supabase UUID (or we let Supabase handle the mismatch safely).
+  const { data, error } = await supabase
+    .from('bookings')
+    .update({ status: 'cancelled' })
+    .eq('id', bookingId)
+    .select()
+
+  return { data, error }
+}
