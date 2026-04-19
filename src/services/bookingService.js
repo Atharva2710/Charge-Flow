@@ -103,3 +103,72 @@ export async function deleteVehicle(vehicleId) {
 
   return { data, error }
 }
+
+// ── PEER REVIEWS ────────────────────────────────────────────────────────
+
+export async function addStationReview(userId, stationId, rating, comment) {
+  if (!userId) return { error: 'Not logged in' }
+
+  const payload = {
+    user_id: userId,
+    station_id: stationId.toString(),
+    rating: parseInt(rating, 10),
+    comment: comment || ''
+  }
+
+  // Uses upsert in case they are modifying an existing review
+  const { data, error } = await supabase
+    .from('reviews')
+    .upsert([payload], { onConflict: 'user_id, station_id' })
+    .select()
+    .single()
+
+  return { data, error }
+}
+
+export async function fetchStationRatings() {
+  // Fetch all reviews and group them by station to calculate averages
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('station_id, rating')
+
+  if (error) {
+    console.error('Error fetching ratings:', error)
+    return {}
+  }
+
+  // Calculate averages client-side for simplicity
+  const stationStats = {}
+  data.forEach(r => {
+    if (!stationStats[r.station_id]) {
+      stationStats[r.station_id] = { sum: 0, count: 0 }
+    }
+    stationStats[r.station_id].sum += r.rating
+    stationStats[r.station_id].count += 1
+  })
+
+  // Format into average scores
+  const aggregates = {}
+  Object.keys(stationStats).forEach(id => {
+    const avg = stationStats[id].sum / stationStats[id].count
+    aggregates[id] = {
+      average: parseFloat(avg.toFixed(1)),
+      count: stationStats[id].count
+    }
+  })
+
+  return aggregates
+}
+
+export async function checkUserReview(userId, stationId) {
+  if (!userId) return null
+  const { data, error } = await supabase
+    .from('reviews')
+    .select('rating, comment')
+    .eq('user_id', userId)
+    .eq('station_id', stationId.toString())
+    .maybeSingle()
+  
+  if (error) return null
+  return data
+}

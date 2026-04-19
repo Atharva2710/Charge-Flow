@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { motion, AnimatePresence } from 'framer-motion'
 import { getAllBookings, cancelBooking, isBookingActive } from '../hooks/useBooking'
-import { fetchUserBookings, cancelUserBookingInDB } from '../services/bookingService'
+import { fetchUserBookings, cancelUserBookingInDB, addStationReview } from '../services/bookingService'
 import { useAuth } from '../context/AuthContext'
 
 export default function BookingsPage() {
@@ -10,6 +10,9 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState([])
   const [activeTab, setActiveTab] = useState('active') // 'active' | 'history'
   const [cancellingId, setCancellingId] = useState(null)
+  
+  // Review State
+  const [reviewModal, setReviewModal] = useState({ open: false, stationId: null, stationName: '', rating: 5, comment: '', posting: false })
   const [, setTick] = useState(0) // Used to force a re-render every second
   const { user } = useAuth()
 
@@ -80,6 +83,17 @@ export default function BookingsPage() {
       setCancellingId(null)
     }, 800)
   }, [user])
+
+  const submitReview = async (e) => {
+    e.preventDefault()
+    setReviewModal(prev => ({ ...prev, posting: true }))
+    
+    await addStationReview(user.id, reviewModal.stationId, reviewModal.rating, reviewModal.comment)
+    
+    // Quick local state feedback that review was submitted
+    alert('Thank you for leaving a review!')
+    setReviewModal({ open: false, stationId: null, stationName: '', rating: 5, comment: '', posting: false })
+  }
 
   function timeRemaining(expiresAt) {
     const diff = new Date(expiresAt) - new Date()
@@ -260,6 +274,16 @@ export default function BookingsPage() {
                           {cancelling ? 'Cancelling...' : 'Cancel Booking'}
                         </button>
                       )}
+
+                      {/* Review button for Completed bookings */}
+                      {!active && booking.status !== 'cancelled' && (
+                        <button
+                          onClick={() => setReviewModal({ open: true, stationId: booking.stationId, stationName: booking.stationName, rating: 5, comment: '', posting: false })}
+                          className="w-full py-2.5 rounded-xl text-sm font-medium border border-[#3B82F6]/40 text-[#3B82F6] hover:bg-[#3B82F6]/10 transition"
+                        >
+                          ⭐ Leave a Review
+                        </button>
+                      )}
                     </div>
                   </motion.div>
                 )
@@ -268,6 +292,71 @@ export default function BookingsPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Review Modal ── */}
+      <AnimatePresence>
+        {reviewModal.open && (
+           <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4"
+            onClick={() => setReviewModal(p => ({ ...p, open: false }))}
+          >
+            <motion.div
+              initial={{ scale: 0.9, opacity: 0, y: 20 }}
+              animate={{ scale: 1, opacity: 1, y: 0 }}
+              exit={{ scale: 0.9, opacity: 0, y: 20 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              onClick={e => e.stopPropagation()}
+              className="w-full max-w-sm bg-[#0F172A] border border-[#1E293B] rounded-2xl shadow-2xl p-6"
+            >
+              <h2 className="font-bold text-white text-lg">Rate this Station</h2>
+              <p className="text-[#64748B] text-xs mt-1 mb-4">{reviewModal.stationName}</p>
+
+              <form onSubmit={submitReview} className="flex flex-col gap-4">
+                <div className="flex items-center justify-center gap-2 mb-2">
+                  {[1, 2, 3, 4, 5].map(star => (
+                    <button
+                      key={star}
+                      type="button"
+                      onClick={() => setReviewModal(p => ({ ...p, rating: star }))}
+                      className={`text-3xl transition-colors ${star <= reviewModal.rating ? 'text-[#F59E0B]' : 'text-[#334155]'}`}
+                    >
+                      ★
+                    </button>
+                  ))}
+                </div>
+
+                <textarea
+                  placeholder="Leave a comment (optional)..."
+                  value={reviewModal.comment}
+                  onChange={e => setReviewModal(p => ({ ...p, comment: e.target.value }))}
+                  className="w-full px-4 py-3 rounded-xl bg-[#1E293B] border border-[#334155] text-white text-sm focus:outline-none focus:border-[#3B82F6] transition resize-none min-h-[100px]"
+                />
+
+                <div className="flex gap-3 mt-2">
+                  <button
+                    type="button"
+                    onClick={() => setReviewModal(p => ({ ...p, open: false }))}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm bg-[#1E293B] text-[#94A3B8] hover:text-white transition"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={reviewModal.posting}
+                    className="flex-1 py-3 rounded-xl font-semibold text-sm bg-gradient-to-r from-[#10B981] to-[#3B82F6] text-white transition hover:opacity-90 disabled:opacity-50"
+                  >
+                    {reviewModal.posting ? 'Posting...' : 'Submit Review'}
+                  </button>
+                </div>
+              </form>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
     </div>
   )
 }
+

@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from 'react'
 import { MOCK_STATIONS, getStationStatus } from '../data/mockStations'
 import { getDistanceKm } from '../utils/distanceCalc'
+import { fetchStationRatings } from '../services/bookingService'
 
 /**
  * useChargers — the core data hook for the map.
@@ -18,14 +19,24 @@ export function useChargers(userCoords, filters = {}) {
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
 
-  // Fetch stations (using mock data; swap for Supabase later)
+  // Fetch stations & merge with real DB ratings
   useEffect(() => {
     setLoading(true)
-    // Simulate async fetch
-    setTimeout(() => {
-      setStations(MOCK_STATIONS)
+    async function loadData() {
+      // Get peer ratings from DB
+      const ratings = await fetchStationRatings()
+      
+      // Merge with MOCK_STATIONS
+      const merged = MOCK_STATIONS.map(s => ({
+        ...s,
+        rating: ratings[s.id]?.average || s.rating, // Fallback to mock rating if none exists
+        review_count: ratings[s.id]?.count || s.review_count || 0
+      }))
+
+      setStations(merged)
       setLoading(false)
-    }, 600)
+    }
+    loadData()
   }, [])
 
   // useMemo — only recompute when stations, userCoords, or filters change
