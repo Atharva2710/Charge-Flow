@@ -29,7 +29,7 @@ export default function MapPage() {
   // ── State
   const [selectedStation, setSelectedStation] = useState(null)
   const [bookingStation, setBookingStation] = useState(null) // station to book
-  const [sidebarOpen, setSidebarOpen] = useState(true)
+  const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
   const [filters, setFilters] = useState({
     connectorType: '',
     minKw: 0,
@@ -215,6 +215,19 @@ export default function MapPage() {
 
       {/* ── Main Content ── */}
       <div className="flex flex-1 overflow-hidden relative">
+        
+        {/* Mobile backdrop for sidebar */}
+        <AnimatePresence>
+          {sidebarOpen && (
+            <motion.div
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+              onClick={() => setSidebarOpen(false)}
+              className="md:hidden absolute inset-0 bg-black/50 z-30"
+            />
+          )}
+        </AnimatePresence>
 
         {/* ── Sidebar ── */}
         <AnimatePresence>
@@ -224,11 +237,20 @@ export default function MapPage() {
               animate={{ x: 0, opacity: 1 }}
               exit={{ x: -320, opacity: 0 }}
               transition={{ type: 'spring', damping: 25, stiffness: 200 }}
-              className="w-80 flex-shrink-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col z-20 overflow-hidden"
+              className="absolute md:relative inset-y-0 left-0 w-80 max-w-[85vw] flex-shrink-0 bg-[#0F172A] border-r border-[#1E293B] flex flex-col z-40 md:z-20 overflow-hidden shadow-2xl md:shadow-none"
             >
               {/* Filter Bar */}
+              <div className="p-3 border-b border-[#1E293B] bg-[#0F172A] flex-shrink-0 flex justify-between items-center">
+                <p className="text-xs font-medium text-[#94A3B8] uppercase tracking-wider">Filter Chargers</p>
+                <button
+                  onClick={() => setSidebarOpen(false)}
+                  className="md:hidden text-[#94A3B8] hover:text-white"
+                >
+                  ✕
+                </button>
+              </div>
+
               <div className="p-3 border-b border-[#1E293B] bg-[#0F172A] flex-shrink-0">
-                <p className="text-xs font-medium text-[#94A3B8] mb-2 uppercase tracking-wider">Filter Chargers</p>
 
                 {/* Available only toggle */}
                 <label className="flex items-center gap-2 mb-2 cursor-pointer">
