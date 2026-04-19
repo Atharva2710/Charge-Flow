@@ -30,6 +30,7 @@ export default function MapPage() {
   const [selectedStation, setSelectedStation] = useState(null)
   const [bookingStation, setBookingStation] = useState(null) // station to book
   const [sidebarOpen, setSidebarOpen] = useState(window.innerWidth > 768)
+  const [isNavigating, setIsNavigating] = useState(false)
   const [filters, setFilters] = useState({
     connectorType: '',
     minKw: 0,
@@ -78,10 +79,67 @@ export default function MapPage() {
     })
   }, [userCoords])
 
+  // ── Route Drawing Logic
+  const fetchRoute = async (station) => {
+    if (!map.current || !userCoords) return
+    setIsNavigating(true)
+
+    try {
+      const query = await fetch(
+        `https://api.mapbox.com/directions/v5/mapbox/driving/${userCoords.lng},${userCoords.lat};${station.longitude},${station.latitude}?geometries=geojson&access_token=${mapboxgl.accessToken}`
+      )
+      const data = await query.json()
+      const route = data.routes[0]?.geometry
+
+      if (!route) return
+
+      // Remove existing route if any
+      if (map.current.getSource('route')) {
+        map.current.getSource('route').setData(route)
+      } else {
+        map.current.addLayer({
+          id: 'route',
+          type: 'line',
+          source: {
+            type: 'geojson',
+            data: {
+              type: 'Feature',
+              properties: {},
+              geometry: route
+            }
+          },
+          layout: {
+            'line-join': 'round',
+            'line-cap': 'round'
+          },
+          paint: {
+            'line-color': '#3B82F6', // Blue route
+            'line-width': 6,
+            'line-opacity': 0.8
+          }
+        })
+      }
+
+      // Auto-fit map to route bounds
+      const bounds = new mapboxgl.LngLatBounds()
+      route.coordinates.forEach(coord => bounds.extend(coord))
+      map.current.fitBounds(bounds, { padding: 80, duration: 1500 })
+    } catch (err) {
+      console.error('Failed to fetch route', err)
+    } finally {
+      setIsNavigating(false)
+    }
+  }
+
   // ── useCallback — stable reference for marker click handler (won't re-create on every render)
   const handleMarkerClick = useCallback((station) => {
     setSelectedStation(station)
     setSidebarOpen(true)
+
+    // Clear route when selecting a new station
+    if (map.current?.getSource('route')) {
+      map.current.getSource('route').setData({ type: 'FeatureCollection', features: [] })
+    }
 
     // Fly map to the clicked station
     map.current?.flyTo({
@@ -443,16 +501,30 @@ export default function MapPage() {
               </div>
 
               {/* Reserve button */}
-              <button
-                disabled={selectedStation.available_slots === 0}
-                onClick={() => setBookingStation(selectedStation)}
-                className="w-full py-3 rounded-xl font-semibold text-sm transition-all
-                  bg-gradient-to-r from-[#10B981] to-[#3B82F6] text-white
-                  hover:opacity-90 active:scale-[0.98]
-                  disabled:opacity-40 disabled:cursor-not-allowed"
-              >
-                {selectedStation.available_slots === 0 ? 'No Slots Available' : 'Reserve a Slot'}
-              </button>
+              <div className="flex gap-2">
+                {userCoords && (
+                  <button
+                    onClick={() => fetchRoute(selectedStation)}
+                    disabled={isNavigating}
+                    title="Get Directions"
+                    className="flex-shrink-0 w-12 h-12 flex items-center justify-center rounded-xl bg-[#1E293B] border border-[#334155] text-white hover:bg-[#334155] transition disabled:opacity-50"
+                  >
+                    {isNavigating ? (
+                      <div className="w-5 h-5 rounded-full border-2 border-[#3B82F6] border-t-transparent animate-spin" />
+                    ) : '🗺️'}
+                  </button>
+                )}
+                <button
+                  disabled={selectedStation.available_slots === 0}
+                  onClick={() => setBookingStation(selectedStation)}
+                  className="flex-1 py-3 rounded-xl font-semibold text-sm transition-all
+                    bg-gradient-to-r from-[#10B981] to-[#3B82F6] text-white
+                    hover:opacity-90 active:scale-[0.98]
+                    disabled:opacity-40 disabled:cursor-not-allowed"
+                >
+                  {selectedStation.available_slots === 0 ? 'No Slots Available' : 'Reserve a Slot'}
+                </button>
+              </div>
 
               {selectedStation.is_verified && (
                 <p className="text-center text-xs text-[#10B981] mt-2">
