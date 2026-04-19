@@ -258,10 +258,16 @@ export default function MapPage() {
 
       const color = getStatusColor(station.status)
 
-      // Create custom HTML marker element
+      // Create custom HTML marker element wrapper
       const el = document.createElement('div')
-      el.className = 'chargeflow-marker'
-      el.style.cssText = `
+      el.className = 'chargeflow-marker-wrapper'
+      el.title = station.name
+      el.style.cursor = 'pointer'
+
+      // Create inner visual element to safely scale without breaking Mapbox's positioning transform
+      const inner = document.createElement('div')
+      inner.className = 'chargeflow-marker'
+      inner.style.cssText = `
         width: 36px;
         height: 36px;
         border-radius: 50%;
@@ -271,16 +277,15 @@ export default function MapPage() {
         display: flex;
         align-items: center;
         justify-content: center;
-        cursor: pointer;
         font-size: 14px;
         transition: transform 0.2s;
       `
-      el.innerHTML = '⚡'
-      el.title = station.name
+      inner.innerHTML = '⚡'
+      el.appendChild(inner)
 
-      // Hover effect
-      el.addEventListener('mouseenter', () => { el.style.transform = 'scale(1.2)' })
-      el.addEventListener('mouseleave', () => { el.style.transform = 'scale(1)' })
+      // Hover effect targets the INNER element, preserving Mapbox's translate on the wrapper
+      el.addEventListener('mouseenter', () => { inner.style.transform = 'scale(1.2)' })
+      el.addEventListener('mouseleave', () => { inner.style.transform = 'scale(1)' })
       el.addEventListener('click', () => handleMarkerClick(station))
 
       const marker = new mapboxgl.Marker({ element: el })
