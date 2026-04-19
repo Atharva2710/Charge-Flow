@@ -57,7 +57,7 @@ export default function BookingModal({ station, onClose }) {
           exit={{ scale: 0.9, opacity: 0, y: 20 }}
           transition={{ type: 'spring', damping: 25, stiffness: 300 }}
           onClick={e => e.stopPropagation()}
-          className="w-full max-w-lg bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-2xl"
+          className="w-full max-w-lg max-h-[90vh] flex flex-col bg-[#0F172A] border border-[#1E293B] rounded-2xl overflow-hidden shadow-2xl"
         >
           {/* Header */}
           <div className="px-6 py-4 border-b border-[#1E293B] flex items-center justify-between">
@@ -95,7 +95,7 @@ export default function BookingModal({ station, onClose }) {
             })}
           </div>
 
-          <div className="px-6 py-4">
+          <div className="px-6 py-4 overflow-y-auto">
             {/* ── STEP 1: SELECT ── */}
             {step === 'select' && (
               <motion.div initial={{ opacity: 0 }} animate={{ opacity: 1 }} className="flex flex-col gap-5">
