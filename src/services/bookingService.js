@@ -54,3 +54,52 @@ export async function cancelUserBookingInDB(bookingId) {
 
   return { data, error }
 }
+
+// ── MY GARAGE (Vehicles) ────────────────────────────────────────────────
+
+export async function fetchUserVehicles(userId) {
+  if (!userId) return []
+
+  const { data, error } = await supabase
+    .from('vehicles')
+    .select('*')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+
+  if (error) {
+    console.error('Error fetching vehicles:', error)
+    return []
+  }
+  return data
+}
+
+export async function addVehicle(userId, vehicleData) {
+  if (!userId) return { error: 'User must be logged in' }
+
+  const payload = {
+    user_id: userId,
+    vendor_name: vehicleData.vendor,
+    model_name: vehicleData.model,
+    battery_capacity: vehicleData.battery,
+    connector_type: vehicleData.connector
+  }
+
+  const { data, error } = await supabase
+    .from('vehicles')
+    .insert([payload])
+    .select()
+    .single()
+
+  return { data, error }
+}
+
+export async function deleteVehicle(vehicleId) {
+  if (!vehicleId) return { error: 'No vehicle id' }
+
+  const { data, error } = await supabase
+    .from('vehicles')
+    .delete()
+    .eq('id', vehicleId)
+
+  return { data, error }
+}

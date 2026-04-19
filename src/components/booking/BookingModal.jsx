@@ -1,8 +1,9 @@
-import { useCallback } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBooking } from '../../hooks/useBooking'
 import { useAuth } from '../../context/AuthContext'
 import { getStatusColor } from '../../data/mockStations'
+import { fetchUserVehicles } from '../../services/bookingService'
 
 const DURATION_OPTIONS = [
   { label: '30 min', value: 30 },
@@ -25,6 +26,23 @@ export default function BookingModal({ station, onClose }) {
   } = useBooking()
 
   const { user } = useAuth()
+  const [userVehicles, setUserVehicles] = useState([])
+
+  useEffect(() => {
+    async function loadVehicles() {
+      if (user?.id) {
+        const dbVehicles = await fetchUserVehicles(user.id)
+        if (dbVehicles?.length > 0) {
+          setUserVehicles(dbVehicles)
+          // Default to the first vehicle if none selected
+          if (!vehicleName) {
+            setVehicleName(`${dbVehicles[0].vendor_name} ${dbVehicles[0].model_name}`)
+          }
+        }
+      }
+    }
+    loadVehicles()
+  }, [user, vehicleName, setVehicleName])
 
   // Only show available chargers
   const availableChargers = station.chargers.filter(c => c.status === 'available')
@@ -155,20 +173,38 @@ export default function BookingModal({ station, onClose }) {
 
                 {/* Vehicle Name */}
                 <div>
-                  <label className="text-xs font-medium text-[#94A3B8] uppercase tracking-wider mb-2 block">
-                    Your Vehicle
+                  <label className="text-xs font-medium text-[#94A3B8] uppercase tracking-wider mb-2 flex items-center justify-between">
+                    <span>Your Vehicle</span>
+                    <a href="/profile" className="text-[10px] text-[#10B981] hover:underline">Manage Garage →</a>
                   </label>
-                  <input
-                    type="text"
-                    value={vehicleName}
-                    onChange={e => setVehicleName(e.target.value)}
-                    placeholder="e.g. Tata Nexon EV"
-                    list="vehicles"
-                    className="w-full px-4 py-2.5 rounded-xl bg-[#1E293B] border border-[#334155] text-white placeholder-[#64748B] text-sm focus:outline-none focus:border-[#3B82F6] transition"
-                  />
-                  <datalist id="vehicles">
-                    {VEHICLE_SUGGESTIONS.map(v => <option key={v} value={v} />)}
-                  </datalist>
+                  {userVehicles.length > 0 ? (
+                    <select
+                      value={vehicleName}
+                      onChange={e => setVehicleName(e.target.value)}
+                      className="w-full px-4 py-3 rounded-xl bg-[#1E293B] border border-[#334155] text-white text-sm focus:outline-none focus:border-[#3B82F6] transition appearance-none"
+                    >
+                      {userVehicles.map(v => (
+                        <option key={v.id} value={`${v.vendor_name} ${v.model_name}`}>
+                          {v.vendor_name} {v.model_name} ({v.battery_capacity} kWh)
+                        </option>
+                      ))}
+                      <option value="Guest Vehicle">Other (Guest Vehicle)</option>
+                    </select>
+                  ) : (
+                    <div className="flex gap-2">
+                       <input
+                        type="text"
+                        value={vehicleName}
+                        onChange={e => setVehicleName(e.target.value)}
+                        placeholder="e.g. Tata Nexon EV"
+                        list="vehicles"
+                        className="flex-1 px-4 py-2.5 rounded-xl bg-[#1E293B] border border-[#334155] text-white placeholder-[#64748B] text-sm focus:outline-none focus:border-[#3B82F6] transition"
+                      />
+                      <datalist id="vehicles">
+                        {VEHICLE_SUGGESTIONS.map(v => <option key={v} value={v} />)}
+                      </datalist>
+                    </div>
+                  )}
                 </div>
 
                 {/* Live Price Preview */}

@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { motion } from 'framer-motion'
 import { useAuth } from '../context/AuthContext'
 import { getAllBookings } from '../hooks/useBooking'
-import { fetchUserBookings } from '../services/bookingService'
+import { fetchUserBookings, fetchUserVehicles, addVehicle, deleteVehicle } from '../services/bookingService'
 
 export default function ProfilePage() {
   const navigate = useNavigate()
@@ -18,6 +18,9 @@ export default function ProfilePage() {
     : 'Recently'
 
   const [bookings, setBookings] = useState([])
+  const [vehicles, setVehicles] = useState([])
+  const [isAddingVehicle, setIsAddingVehicle] = useState(false)
+  const [newVehicle, setNewVehicle] = useState({ vendor: '', model: '', battery: '', connector: 'CCS2' })
 
   useEffect(() => {
     // Local fallback
@@ -38,9 +41,30 @@ export default function ProfilePage() {
           estimatedKwh: db.estimated_kwh,
         })))
       }
+
+      const dbVehicles = await fetchUserVehicles(user.id)
+      setVehicles(dbVehicles || [])
     }
     syncDb()
   }, [user])
+
+  async function handleAddVehicle(e) {
+    e.preventDefault()
+    if (!newVehicle.vendor || !newVehicle.model || !newVehicle.battery) return
+    const { data } = await addVehicle(user.id, newVehicle)
+    if (data) {
+      setVehicles([data, ...vehicles])
+      setIsAddingVehicle(false)
+      setNewVehicle({ vendor: '', model: '', battery: '', connector: 'CCS2' })
+    }
+  }
+
+  async function handleDeleteVehicle(id) {
+    if (confirm('Remove this vehicle from your garage?')) {
+      await deleteVehicle(id)
+      setVehicles(vehicles.filter(v => v.id !== id))
+    }
+  }
 
   // Stats from booking history
   const profileStats = useMemo(() => ({
@@ -50,8 +74,7 @@ export default function ProfilePage() {
     uniqueStations: new Set(bookings.map(b => b.stationId)).size,
   }), [bookings])
 
-  // Unique vehicles from booking history
-  const vehicles = [...new Set(bookings.map(b => b.vehicleName).filter(Boolean))]
+
 
   async function handleLogout() {
     await signOut()
@@ -139,21 +162,62 @@ export default function ProfilePage() {
           initial={{ opacity: 0, y: 10 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ delay: 0.2 }}
-          className="bg-[#1E293B] rounded-2xl border border-[#334155] mb-4 overflow-hidden"
+          className="bg-[#1E293B] rounded-2xl border border-[#334155] mb-4 overflow-hidden relative"
         >
-          <div className="px-5 py-3 border-b border-[#334155]">
-            <p className="text-xs font-medium text-[#94A3B8] uppercase tracking-wider">My Vehicles</p>
+          <div className="px-5 py-3 border-b border-[#334155] flex justify-between items-center bg-[#0F172A]/50">
+            <p className="text-xs font-medium text-[#94A3B8] uppercase tracking-wider">My Garage</p>
+            <button 
+              onClick={() => setIsAddingVehicle(!isAddingVehicle)}
+              className="text-[#10B981] text-sm font-medium hover:underline"
+            >
+              {isAddingVehicle ? 'Cancel' : '+ Add Vehicle'}
+            </button>
           </div>
-          {vehicles.length === 0 ? (
+
+          {isAddingVehicle && (
+            <div className="p-5 border-b border-[#334155] bg-[#0F172A]/30">
+              <form onSubmit={handleAddVehicle} className="flex flex-col gap-3">
+                <div className="grid grid-cols-2 gap-3">
+                  <input required placeholder="Make (e.g. Tata)" className="bg-[#0F172A] border border-[#334155] rounded-xl px-3 py-2 text-white text-sm" value={newVehicle.vendor} onChange={e => setNewVehicle({...newVehicle, vendor: e.target.value})} />
+                  <input required placeholder="Model (e.g. Nexon)" className="bg-[#0F172A] border border-[#334155] rounded-xl px-3 py-2 text-white text-sm" value={newVehicle.model} onChange={e => setNewVehicle({...newVehicle, model: e.target.value})} />
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <input required type="number" placeholder="Battery kWh" className="bg-[#0F172A] border border-[#334155] rounded-xl px-3 py-2 text-white text-sm" value={newVehicle.battery} onChange={e => setNewVehicle({...newVehicle, battery: e.target.value})} />
+                  <select className="bg-[#0F172A] border border-[#334155] rounded-xl px-3 py-2 text-white text-sm" value={newVehicle.connector} onChange={e => setNewVehicle({...newVehicle, connector: e.target.value})}>
+                    <option>CCS2</option>
+                    <option>Type2</option>
+                    <option>CHAdeMO</option>
+                    <option>Bharat DC</option>
+                  </select>
+                </div>
+                <button type="submit" className="w-full bg-[#10B981] text-white rounded-xl py-2 font-medium text-sm hover:opacity-90 transition">
+                  Save Vehicle
+                </button>
+              </form>
+            </div>
+          )}
+
+          {vehicles.length === 0 && !isAddingVehicle ? (
             <div className="px-5 py-5 text-center">
-              <p className="text-[#64748B] text-sm">No vehicles yet</p>
-              <p className="text-[#475569] text-xs mt-1">They'll appear here after your first booking</p>
+              <p className="text-[#64748B] text-sm">No vehicles parked here</p>
+              <p className="text-[#475569] text-xs mt-1">Add your EV to calculate charge times accurately.</p>
             </div>
           ) : (
             vehicles.map(v => (
-              <div key={v} className="flex items-center gap-3 px-5 py-3.5 border-b border-[#334155] last:border-0">
-                <span className="text-base">🚗</span>
-                <p className="text-white text-sm">{v}</p>
+              <div key={v.id} className="flex items-center justify-between gap-3 px-5 py-3.5 border-b border-[#334155] last:border-0 hover:bg-[#334155]/20">
+                <div className="flex items-center gap-3">
+                  <span className="text-xl">🚗</span>
+                  <div>
+                    <p className="text-white text-sm font-medium">{v.vendor_name} {v.model_name}</p>
+                    <p className="text-[#64748B] text-xs">{v.battery_capacity} kWh • {v.connector_type}</p>
+                  </div>
+                </div>
+                <button 
+                  onClick={() => handleDeleteVehicle(v.id)}
+                  className="text-[#EF4444] p-2 hover:bg-[#EF4444]/10 rounded-lg text-xs transition"
+                >
+                  Remove
+                </button>
               </div>
             ))
           )}
