@@ -69,9 +69,10 @@ export default function DashboardPage() {
   ]
 
   const quickActions = [
-    { label: 'Find Charger', icon: '🗺', desc: 'View live EV map', path: '/map', gradient: 'from-[#10B981] to-[#3B82F6]' },
-    { label: 'My Bookings', icon: '📋', desc: 'Active & past slots', path: '/bookings', gradient: 'from-[#3B82F6] to-[#8B5CF6]' },
-    { label: 'Profile', icon: '👤', desc: 'Account settings', path: '/profile', gradient: 'from-[#8B5CF6] to-[#EC4899]' },
+    { label: 'Trip Planner', icon: '🗺️', desc: 'Plan highway routing', path: '/map', gradient: 'from-[#A855F7] to-[#8B5CF6]' },
+    { label: 'Find Charger', icon: '📍', desc: 'View live EV map', path: '/map', gradient: 'from-[#10B981] to-[#3B82F6]' },
+    { label: 'My Garage', icon: '🚗', desc: 'Manage saved vehicles', path: '/profile', gradient: 'from-[#F59E0B] to-[#EF4444]' },
+    { label: 'My Bookings', icon: '📋', desc: 'Active & past slots', path: '/bookings', gradient: 'from-[#3B82F6] to-[#0369A1]' },
   ]
 
   return (
@@ -142,7 +143,7 @@ export default function DashboardPage() {
           <h2 className="text-sm font-medium text-[#94A3B8] uppercase tracking-wider mb-3">
             Quick Actions
           </h2>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
             {quickActions.map((action) => (
               <button
                 key={action.label}
