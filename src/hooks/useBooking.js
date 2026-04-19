@@ -1,4 +1,5 @@
 import { useReducer, useCallback } from 'react'
+import { createBookingInDB } from '../services/bookingService'
 
 /**
  * useBooking — manages the entire booking flow as a state machine.
@@ -81,34 +82,44 @@ export function useBooking() {
     dispatch({ type: 'NEXT_STEP', payload: 'confirm' })
   }, [state.selectedCharger, state.vehicleName])
 
-  const confirmBooking = useCallback((station) => {
+  const confirmBooking = useCallback(async (station, user) => {
     dispatch({ type: 'SET_LOADING', payload: true })
 
-    // Simulate async booking (replace with Supabase insert later)
-    setTimeout(() => {
-      const booking = {
-        id: `BK-${Date.now()}`,
-        stationId: station.id,
-        stationName: station.name,
-        stationAddress: station.address,
-        charger: state.selectedCharger,
-        duration: state.duration,
-        vehicleName: state.vehicleName,
-        estimatedKwh,
-        estimatedCost,
-        status: 'active',
-        bookedAt: new Date().toISOString(),
-        expiresAt: new Date(Date.now() + state.duration * 60 * 1000).toISOString(),
+    const expiresAt = new Date(Date.now() + state.duration * 60 * 1000).toISOString()
+
+    const bookingPayload = {
+      id: `BK-${Date.now()}`,
+      stationId: station.id,
+      stationName: station.name,
+      stationAddress: station.address,
+      charger: state.selectedCharger,
+      duration: state.duration,
+      vehicleName: state.vehicleName,
+      estimatedKwh,
+      estimatedCost,
+      status: 'active',
+      bookedAt: new Date().toISOString(),
+      endTime: expiresAt, // DB matches this column
+      expiresAt: expiresAt, // Local UI uses this
+    }
+
+    try {
+      // 1. Try saving to Supabase (if configured)
+      if (user?.id) {
+        await createBookingInDB(bookingPayload, user.id)
       }
 
-      // Save to localStorage
+      // 2. Always save to LocalStorage (bulletproof fallback for demo)
       const existing = JSON.parse(localStorage.getItem(BOOKING_KEY) || '[]')
-      existing.unshift(booking)
+      existing.unshift(bookingPayload)
       localStorage.setItem(BOOKING_KEY, JSON.stringify(existing))
 
       dispatch({ type: 'SET_LOADING', payload: false })
       dispatch({ type: 'NEXT_STEP', payload: 'success' })
-    }, 1200)
+    } catch (err) {
+      console.error('Booking failed:', err)
+      dispatch({ type: 'SET_ERROR', payload: 'Failed to confirm booking. Try again.' })
+    }
   }, [state.selectedCharger, state.duration, state.vehicleName, estimatedKwh, estimatedCost])
 
   const reset = useCallback(() => {

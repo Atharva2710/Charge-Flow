@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { useBooking } from '../../hooks/useBooking'
+import { useAuth } from '../../context/AuthContext'
 import { getStatusColor } from '../../data/mockStations'
 
 const DURATION_OPTIONS = [
@@ -23,6 +24,8 @@ export default function BookingModal({ station, onClose }) {
     goToConfirm, confirmBooking, reset,
   } = useBooking()
 
+  const { user } = useAuth()
+
   // Only show available chargers
   const availableChargers = station.chargers.filter(c => c.status === 'available')
 
@@ -32,8 +35,8 @@ export default function BookingModal({ station, onClose }) {
   }, [reset, onClose])
 
   const handleConfirm = useCallback(() => {
-    confirmBooking(station)
-  }, [confirmBooking, station])
+    confirmBooking(station, user)
+  }, [confirmBooking, station, user])
 
   return (
     <AnimatePresence>
