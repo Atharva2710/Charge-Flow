@@ -10,7 +10,16 @@ export default function BookingsPage() {
   const [bookings, setBookings] = useState([])
   const [activeTab, setActiveTab] = useState('active') // 'active' | 'history'
   const [cancellingId, setCancellingId] = useState(null)
+  const [, setTick] = useState(0) // Used to force a re-render every second
   const { user } = useAuth()
+
+  // Live countdown ticker
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setTick(t => t + 1)
+    }, 1000)
+    return () => clearInterval(interval)
+  }, [])
 
   // Load bookings (hybrid approach: Local instantly -> DB optionally)
   useEffect(() => {
