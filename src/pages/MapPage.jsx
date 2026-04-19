@@ -7,6 +7,7 @@ import { motion, AnimatePresence } from 'framer-motion'
 import { useGeolocation } from '../hooks/useGeolocation'
 import { useChargers } from '../hooks/useChargers'
 import StationCard from '../components/station/StationCard'
+import BookingModal from '../components/booking/BookingModal'
 import { getStatusColor, getStatusLabel } from '../data/mockStations'
 import { formatDistance } from '../utils/distanceCalc'
 
@@ -27,6 +28,7 @@ export default function MapPage() {
 
   // ── State
   const [selectedStation, setSelectedStation] = useState(null)
+  const [bookingStation, setBookingStation] = useState(null) // station to book
   const [sidebarOpen, setSidebarOpen] = useState(true)
   const [filters, setFilters] = useState({
     connectorType: '',
@@ -186,6 +188,13 @@ export default function MapPage() {
         </div>
 
         <div className="flex items-center gap-2">
+          {/* My Bookings link */}
+          <button
+            onClick={() => navigate('/bookings')}
+            className="px-3 py-1.5 rounded-lg bg-[#1E293B] border border-[#334155] text-[#94A3B8] hover:text-white hover:border-[#10B981] transition text-xs font-medium"
+          >
+            My Bookings
+          </button>
           {/* Locate Me button */}
           <button
             onClick={refreshLocation}
@@ -199,7 +208,7 @@ export default function MapPage() {
             onClick={() => setSidebarOpen(v => !v)}
             className="p-2 rounded-lg bg-[#1E293B] border border-[#334155] text-[#94A3B8] hover:text-white transition text-sm"
           >
-            {sidebarOpen ? '☰' : '☰'}
+            ☰
           </button>
         </div>
       </nav>
@@ -414,12 +423,13 @@ export default function MapPage() {
               {/* Reserve button */}
               <button
                 disabled={selectedStation.available_slots === 0}
+                onClick={() => setBookingStation(selectedStation)}
                 className="w-full py-3 rounded-xl font-semibold text-sm transition-all
                   bg-gradient-to-r from-[#10B981] to-[#3B82F6] text-white
                   hover:opacity-90 active:scale-[0.98]
                   disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                {selectedStation.available_slots === 0 ? 'No Slots Available' : 'Reserve a Slot (15 min hold)'}
+                {selectedStation.available_slots === 0 ? 'No Slots Available' : 'Reserve a Slot'}
               </button>
 
               {selectedStation.is_verified && (
@@ -431,6 +441,14 @@ export default function MapPage() {
           )}
         </AnimatePresence>
       </div>
+
+      {/* ── Booking Modal ── */}
+      {bookingStation && (
+        <BookingModal
+          station={bookingStation}
+          onClose={() => setBookingStation(null)}
+        />
+      )}
     </div>
   )
 }

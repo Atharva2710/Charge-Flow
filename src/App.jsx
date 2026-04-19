@@ -11,6 +11,7 @@ import AuthPage from './pages/AuthPage'
 const DashboardPage = lazy(() => import('./pages/DashboardPage'))
 const MapPage = lazy(() => import('./pages/MapPage'))
 const ProfilePage = lazy(() => import('./pages/ProfilePage'))
+const BookingsPage = lazy(() => import('./pages/BookingsPage'))
 
 // Full-screen loading fallback for lazy-loaded pages
 function PageLoader() {
@@ -56,6 +57,15 @@ export default function App() {
               element={
                 <ProtectedRoute>
                   <ProfilePage />
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/bookings"
+              element={
+                <ProtectedRoute>
+                  <BookingsPage />
                 </ProtectedRoute>
               }
             />
