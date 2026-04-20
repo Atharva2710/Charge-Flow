@@ -2,6 +2,9 @@
 
 Welcome to **ChargeFlow v2**! This is an elite, full-stack React application designed to solve EV station anxiety in India. It combines a highly responsive framer-motion UI with live Mapbox mapping, a real-time bookings engine, and a connected Supabase backend.
 
+## 🎥 Quick Demo
+<video src="./public/demo.mp4" width="100%" controls></video>
+
 ## 🌟 V2 Advanced Features
 
 - **High-Speed Trip Planner**: Integrates the `Mapbox Geocoding API` and `Directions API`. Type your Origin and Destination (e.g., "Mumbai" to "Pune") and dynamically trace a glowing purple highway on the map, auto-framing the camera to reveal all charging stations along your route.
